@@ -1,0 +1,149 @@
+"""
+Tools for Kaiko API
+"""
+import pandas as pd
+from datetime import datetime
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+default_headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
+default_df_formatter = lambda res: pd.DataFrame(res['data'])
+
+
+def requests_retry_session(retries=5, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
+    """
+    Adapted from https://www.peterbe.com/plog/best-practice-with-retries-with-requests
+    """
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    return session
+
+
+def request_data(url: str, headers: dict = default_headers, params: dict = None, session_params: dict = {},
+                 pagination: bool = True):
+    """
+    Makes the request from the REST endpoint and returns the json response.
+
+    :param url:
+    :param headers:
+    :param params: Dictionary containing the request parameters.
+    :type params: dict
+    :param session_params: Session parameters for the get request.
+    :type session_params: dict
+    :param pagination: Continue requests using pagination with next_urls?
+    :type pagination: bool
+    :return: JSON response if the field 'result' is 'success'.
+    """
+    # use default sessionR
+    session = requests_retry_session(**session_params)
+
+    response = session.get(url, headers=headers, params=params)
+    res = response.json()
+
+    if pagination:
+        res_tmp = res
+        res['total_queries'] = 1
+        while 'next_url' in res_tmp.keys():
+            response = session.get(res_tmp['next_url'], headers=headers)
+            res_tmp = response.json()
+            # append data to previous query
+            res['data'] = res['data'] + res_tmp['data']
+            res['total_queries'] += 1
+
+    # try:
+    #     if res['result'] == 'success':
+    #         return res
+    # except Exception as e:
+    #     print('')
+    #     raise ValueError('Data request failed \n%s' % (res))
+    return res
+
+
+def request_df(url: str, df_formatter=default_df_formatter, **kwargs):
+    """
+    Make a simple request from the API.
+
+    :param url: Full URL of the query.
+    :type url: str
+    :param headers: Headers for the query.
+    :type headers: dict, optional
+    :param df_formatter: Formatter function to transform the JSON's data result into a DataFrame.
+    :return: DataFrame containing the data.
+    """
+    res = request_data(url, **kwargs)
+    try:
+        df = df_formatter(res)
+        query = res['query']
+    except Exception as e:
+        query = (e, res)
+        df = pd.DataFrame()
+
+    return df, query
+
+
+def convert_timestamp_unix_to_datetime(ts):
+    """
+    Convert a unix millisecond timestamp to pandas datetime format.
+
+    :param ts: Timestamp in unix millisecond format.
+    :return: 
+    """
+    return pd.to_datetime(ts, unit='ms')
+
+
+def convert_timestamp_str_to_datetime(ts: str):
+    """
+    Takes any type of string timestamp and converts it to a pandas datetime format.
+
+    :param ts: Timestamp in a string format understandable by pandas.to_datetime().
+    :type ts: str
+    :return:
+    """
+    # removing UTC timezone if ISO 8601 format
+    if ts.endswith('Z'): ts = ts.replace('Z', '')
+
+    return pd.to_datetime(ts)
+
+
+def convert_timestamp_datetime_to_unix(ts: str):
+    """
+    Converts pandas datetime to unix millisecond timestamp.
+
+    :param ts:
+    :return:
+    """
+    return int(ts.timestamp() * 1e3)
+
+
+def convert_timestamp_to_apiformat(ts):
+    """
+    Takes multiple types of timestamp and converts it to a format readable by the API.
+    https://docs.kaiko.com/#timestamps
+
+    :param ts: Timestamp in string, unix, or pandas.datetime format.
+    :type ts: str, int, float, pandas.datetime
+    :return: Timestamp in ISO 8601 format.
+    :rtype: str
+    """
+    # For all recognized types, convert the timestamp to pandas.datetime format
+
+    # Strings (can be just a year, day, or a full ISO 8601 formatted string)
+    if type(ts) == str:
+        ts = convert_timestamp_str_to_datetime(ts)
+
+    # Unix millisecond format
+    elif type(ts) in [int, float]:
+        ts = convert_timestamp_unix_to_datetime(ts)
+
+    return ts.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
