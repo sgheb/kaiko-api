@@ -4,7 +4,17 @@ Please note that this repository is not officially maintained by Kaiko, contribu
 
 ## How to use 
 
-###Example 1: Getting some candles (Count OHLCV VWAP)
+### Importing the API to a project
+
+The module can be directly added to Python path 
+```python
+import sys
+sys.path.append('kaiko-api')
+sys.path.append('kaiko-api/kaiko')
+from kaiko import kaiko as kaiko
+```
+
+### Example 1: Getting some candles (Count OHLCV VWAP)
 
 Create a data store from the class Candles.  The example below downloads all the daily 
 candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `df`:
