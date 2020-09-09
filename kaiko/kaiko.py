@@ -349,6 +349,28 @@ class OrderBookAggregations(KaikoData):
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
 
+    @staticmethod
+    def add_price_levels(df):
+        """
+        Add price levels corresponding to amounts given by the API:
+         X_volume_Y where X is in {bid, ask} and Y is the price level relative to the midprice:
+         0_1 ... 0_9 : 0.1% to 0.9% away from the mid price
+         1 ... 10 : 1% to 10% away from the mid price
+        """
+        for side in ['bid', 'ask']:
+            labs = [l for l in df.columns if l.startswith('%s_volume' % side)]
+            for lab in labs:
+                # calculate the level
+                lvl_lab = lab.split('volume')[-1]
+                lvl = float('.'.join(lvl_lab.split('_'))) / 100
+                # side of the order book
+                eps = -1 * (side == 'bid') + 1 * (side == 'ask')
+
+                newlab = '%s_price%s' % (side, lvl_lab)
+
+                df[newlab] = df["mid_price"] * (1 + eps * lvl)
+        return df
+
 
 if __name__ == '__main__':
     # test = OrderBookAverages('cbse', 'btc-usd', start_time='2020-08-06', interval='10m')

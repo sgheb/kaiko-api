@@ -65,7 +65,6 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
             res['total_queries'] += 1
             sleep(sleep_time)
 
-
     # try:
     #     if res['result'] == 'success':
     #         return res
