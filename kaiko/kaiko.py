@@ -3,8 +3,12 @@ Kaiko API Wrapper
 """
 from os import environ
 import utils as ut
-import logging
 import pandas as pd
+import logging
+try:
+    from cStringIO import StringIO      # Python 2
+except ImportError:
+    from io import StringIO
 
 # Base URLs
 _BASE_URL_KAIKO_US = 'https://us.market-api.kaiko.io/'
@@ -15,7 +19,7 @@ _BASE_URLS = dict(us=_BASE_URL_KAIKO_US, eu=_BASE_URL_KAIKO_EU, rapidapi=_BASE_U
 # API endpoints
 _URL_REFERENCE_DATA_API = 'https://reference-data-api.kaiko.io/v1/'
 
-_URL_HISTORICAL_TRADES = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
+_URL_HISTORICAL_TRADES = 'v1/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
                          '/trades'
 _URL_ORDER_BOOK_FULL = 'v1/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
                        '/snapshots/full'
@@ -23,8 +27,8 @@ _URL_ORDER_BOOK_AGGREGATIONS_FULL = 'v1/data/{commodity}.{data_version}/exchange
                                     '/{instrument}/ob_aggregations/full'
 _URL_CANDLES = 'v1/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
                '/count_ohlcv_vwap'
-_URL_DIRECT_EXCHANGE_RATE = 'v2/data/{commodity}.{data_version}/spot_direct_exchange_rate/{base_asset}/{quote_asset}'
-_URL_EXCHANGE_RATE = 'v2/data/trades.v1/spot_exchange_rate/{base_asset}/{quote_asset}'
+_URL_DIRECT_EXCHANGE_RATE = 'v1/data/{commodity}.{data_version}/spot_direct_exchange_rate/{base_asset}/{quote_asset}'
+_URL_EXCHANGE_RATE = 'v1/data/trades.v1/spot_exchange_rate/{base_asset}/{quote_asset}'
 
 
 # Default settings?
@@ -139,6 +143,11 @@ class KaikoData:
 
         self._form_url()
 
+        self.logs = StringIO()
+        logging.basicConfig(stream=self.logs, level=logging.DEBUG)
+        self._log = logging.getLogger(__name__)
+        self._log.info(f"Initiated data object\n{self.__repr__()}")
+
     def _form_url(self):
         self.url = self.endpoint.format(**self.req_params)
 
@@ -176,8 +185,13 @@ class KaikoData:
         return pd.DataFrame(res['data'])
 
     def _request_api(self):
-        self.df, self.query_api = ut.request_df(self.url, headers=self.client.headers, params=self.params,
-                                                df_formatter=self.df_formatter, pagination=self.pagination)
+        self.df, self.query_api = ut.request_df(self.url,
+                                                return_query=True,
+                                                headers=self.client.headers,
+                                                params=self.params,
+                                                df_formatter=self.df_formatter,
+                                                pagination=self.pagination,
+                                                )
 
     def load_catalogs(self):
         """
@@ -339,5 +353,5 @@ class OrderBookAggregations(KaikoData):
 if __name__ == '__main__':
     # test = OrderBookAverages('cbse', 'btc-usd', start_time='2020-08-06', interval='10m')
 
-    test = OrderBookAggregations('itbi', 'eth-usd', start_time='2020-08-06', interval='10m')
+    test = Candles('cbse', 'eth-usd', start_time='2020-08-06', interval='1d')
     print(test.df)

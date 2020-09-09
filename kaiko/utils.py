@@ -6,10 +6,13 @@ from datetime import datetime
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from time import sleep
 
 default_headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
 default_df_formatter = lambda res: pd.DataFrame(res['data'])
 
+# Sleep time between consecutive queries (in seconds)
+sleep_time = 0.1
 
 def requests_retry_session(retries=5, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
     """
@@ -60,22 +63,25 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
             # append data to previous query
             res['data'] = res['data'] + res_tmp['data']
             res['total_queries'] += 1
+            sleep(sleep_time)
+
 
     # try:
     #     if res['result'] == 'success':
     #         return res
     # except Exception as e:
-    #     print('')
     #     raise ValueError('Data request failed \n%s' % (res))
     return res
 
 
-def request_df(url: str, df_formatter=default_df_formatter, **kwargs):
+def request_df(url: str, return_query: bool = False, df_formatter=default_df_formatter, **kwargs):
     """
     Make a simple request from the API.
 
     :param url: Full URL of the query.
     :type url: str
+    :param return_query: Whether to return the query used or not
+    :type return_query: bool
     :param headers: Headers for the query.
     :type headers: dict, optional
     :param df_formatter: Formatter function to transform the JSON's data result into a DataFrame.
@@ -84,12 +90,18 @@ def request_df(url: str, df_formatter=default_df_formatter, **kwargs):
     res = request_data(url, **kwargs)
     try:
         df = df_formatter(res)
-        query = res['query']
+        if 'query' in res.keys():
+            query = res['query']
+        else:
+            query = None
     except Exception as e:
         query = (e, res)
         df = pd.DataFrame()
 
-    return df, query
+    if return_query:
+        return df, query
+    else:
+        return df
 
 
 def convert_timestamp_unix_to_datetime(ts):
@@ -147,3 +159,11 @@ def convert_timestamp_to_apiformat(ts):
         ts = convert_timestamp_unix_to_datetime(ts)
 
     return ts.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
+
+if __name__ == '__main__':
+    headers = default_headers.copy()
+    headers['X-Api-Key'] = 'YOUR API KEY'
+    URL = 'https://us.market-api.kaiko.io/v1/data/trades.latest/exchanges/{exchange}/spot/{pair}/aggregations' \
+          '/count_ohlcv_vwap'
+    # df = request_df(URL)
