@@ -62,6 +62,8 @@ class KaikoClient:
     In order to change your API key, you can use the setter method for `api_key_input`. `api_key` contains the key
     used by the client and cannot be set.  `api_key` and `headers` are automatically updated when changing
     `api_key_input`.
+
+    Valid `base_url` include 'us', 'eu', and 'rapidapi' (Rapid API no longer supported).
     """
 
     def __init__(self, api_key: str = '', base_url: str = 'us'):
@@ -104,6 +106,28 @@ class KaikoClient:
             'X-Api-Key': self.api_key,
         }
 
+    def load_catalogs(self):
+        """
+        Loads
+        1) List of instruments -> self.all_instruments
+        2) List of exchanges   -> self.all_exchanges
+        3) List of assets      -> self.all_assets
+
+        Those are public endpoints which do not require authentication.
+        """
+        print("Downloading Kaiko's catalog (lists of instruments, exchanges, assets)...")
+
+        # List of all instruments
+        self.all_instruments = ut.request_df(_URL_REFERENCE_DATA_API + 'instruments')
+        # replace None values by 'ongoing'
+        self.all_instruments['trade_end_time'] = self.all_instruments['trade_end_time'].apply(lambda x: x or 'ongoing')
+
+        # List of exchanges and assets
+        self.all_exchanges = ut.request_df(_URL_REFERENCE_DATA_API + 'exchanges')
+        self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
+
+        print("\t...done! - available under client.all_{instruments, exchanges, assets}")
+
     def __repr__(self):
         return "Kaiko Client set up with \n\tBase URL: {}\n\tAPI Key : {}[...]".format(self.base_url, self.api_key[:5])
 
@@ -131,11 +155,6 @@ class KaikoData:
         self._form_url()
 
         self.pagination = pagination
-
-        message = "Has not been imported yet, use load_catalogs() to download."
-        self.all_instruments = message
-        self.all_exchanges = message
-        self.all_assets = message
 
         # catch parameters given to the class constructor
         self._add_to_params(**kwargs)
@@ -182,7 +201,10 @@ class KaikoData:
 
     @staticmethod
     def df_formatter(res):
-        return pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype='float')
+        df.set_index('timestamp', inplace=True)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        return df
 
     def _request_api(self):
         self.df, self.query_api = ut.request_df(self.url,
@@ -194,26 +216,8 @@ class KaikoData:
                                                 )
 
     def load_catalogs(self):
-        """
-        Loads
-        1) List of instruments -> self.all_instruments
-        2) List of exchanges   -> self.all_exchanges
-        3) List of assets      -> self.all_assets
-
-        Those are public endpoints which do not require authentication.
-        """
-        print("Downloading Kaiko's catalog (lists of instruments, exchanges, assets)...")
-
-        # List of all instruments
-        self.all_instruments = ut.request_df(_URL_REFERENCE_DATA_API + 'instruments')
-        # replace None values by 'ongoing'
-        self.all_instruments['trade_end_time'] = self.all_instruments['trade_end_time'].apply(lambda x: x or 'ongoing')
-
-        # List of exchanges and assets
-        self.all_exchanges = ut.request_df(_URL_REFERENCE_DATA_API + 'exchanges')
-        self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
-
-        print("\t...done! - available under all_{instruments, exchanges, assets}")
+        """ Loads catalogs in the client """
+        self.client.load_catalogs()
 
 
 class TickTrades(KaikoData):
@@ -221,7 +225,7 @@ class TickTrades(KaikoData):
     Tick-by-tick trade data
     """
 
-    def __init__(self, exchange, instrument, instrument_class: str = 'spot', params: dict = {}, client=None, **kwargs):
+    def __init__(self, exchange, instrument, instrument_class: str = 'spot', params: dict = dict(page_size=100000), client=None, **kwargs):
         # Initialize endpoint required parameters
         self.req_params = dict(commodity='trades',
                                data_version='latest',
@@ -278,6 +282,28 @@ class Candles(KaikoData):
         return df
 
 
+def add_price_levels(df):
+    """
+    Add order-book price levels corresponding to amounts given by the API:
+     X_volume_Y where X is in {bid, ask} and Y is the price level relative to the midprice:
+     0_1 ... 0_9 : 0.1% to 0.9% away from the mid price
+     1 ... 10 : 1% to 10% away from the mid price
+    """
+    for side in ['bid', 'ask']:
+        labs = [l for l in df.columns if l.startswith('%s_volume' % side)]
+        for lab in labs:
+            # calculate the level
+            lvl_lab = lab.split('volume')[-1]
+            lvl = float('.'.join(lvl_lab.split('_'))) / 100
+            # side of the order book
+            eps = -1 * (side == 'bid') + 1 * (side == 'ask')
+
+            newlab = '%s_price%s' % (side, lvl_lab)
+
+            df[newlab] = df["mid_price"] * (1 + eps * lvl)
+    return df
+
+
 class OrderBookSnapshots(KaikoData):
     """
     Order-book data
@@ -312,6 +338,7 @@ class OrderBookSnapshots(KaikoData):
         df = pd.DataFrame(res['data'], dtype='float')
         df.set_index('poll_timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df = add_price_levels(df)
         return df
 
 
@@ -347,28 +374,7 @@ class OrderBookAggregations(KaikoData):
         df = pd.DataFrame(res['data'], dtype='float')
         df.set_index('poll_timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
-        return df
-
-    @staticmethod
-    def add_price_levels(df):
-        """
-        Add price levels corresponding to amounts given by the API:
-         X_volume_Y where X is in {bid, ask} and Y is the price level relative to the midprice:
-         0_1 ... 0_9 : 0.1% to 0.9% away from the mid price
-         1 ... 10 : 1% to 10% away from the mid price
-        """
-        for side in ['bid', 'ask']:
-            labs = [l for l in df.columns if l.startswith('%s_volume' % side)]
-            for lab in labs:
-                # calculate the level
-                lvl_lab = lab.split('volume')[-1]
-                lvl = float('.'.join(lvl_lab.split('_'))) / 100
-                # side of the order book
-                eps = -1 * (side == 'bid') + 1 * (side == 'ask')
-
-                newlab = '%s_price%s' % (side, lvl_lab)
-
-                df[newlab] = df["mid_price"] * (1 + eps * lvl)
+        df = add_price_levels(df)
         return df
 
 

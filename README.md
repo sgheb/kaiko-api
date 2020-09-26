@@ -11,7 +11,7 @@ The module can be directly added to Python path
 import sys
 sys.path.append('kaiko-api')
 sys.path.append('kaiko-api/kaiko')
-from kaiko import kaiko as kaiko
+import kaiko
 ```
 
 ### Example 1: Getting some candles (Count OHLCV VWAP)
@@ -19,7 +19,7 @@ from kaiko import kaiko as kaiko
 Create a data store from the class Candles.  The example below downloads all the daily 
 candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `df`:
 ```python
-ds = Candles('lmax', 'btc-usd', start_time='2020-08', time_interval='1d')
+ds = kaiko.Candles('lmax', 'btc-usd', start_time='2020-08', time_interval='1d')
 ds.df
 ```
 ```buildoutcfg
