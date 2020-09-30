@@ -1,11 +1,13 @@
 """
 Kaiko API Wrapper
 """
-from os import environ
-import kaiko.utils as ut
-import pandas as pd
 import logging
-from datetime import datetime
+from os import environ
+
+import pandas as pd
+
+import kaiko.utils as ut
+
 try:
     from cStringIO import StringIO      # Python 2
 except ImportError:
