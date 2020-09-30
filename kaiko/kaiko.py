@@ -2,9 +2,10 @@
 Kaiko API Wrapper
 """
 from os import environ
-import utils as ut
+import kaiko.utils as ut
 import pandas as pd
 import logging
+from datetime import datetime
 try:
     from cStringIO import StringIO      # Python 2
 except ImportError:
@@ -67,7 +68,6 @@ class KaikoClient:
     """
 
     def __init__(self, api_key: str = '', base_url: str = 'us'):
-        self.logger = logging.getLogger(__name__)
         self.base_url = _BASE_URLS[base_url]
 
         self._api_key_input = api_key
@@ -116,6 +116,7 @@ class KaikoClient:
         Those are public endpoints which do not require authentication.
         """
         print("Downloading Kaiko's catalog (lists of instruments, exchanges, assets)...")
+        logging.info("Downloading catalogs...")
 
         # List of all instruments
         self.all_instruments = ut.request_df(_URL_REFERENCE_DATA_API + 'instruments')
@@ -127,6 +128,7 @@ class KaikoClient:
         self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
 
         print("\t...done! - available under client.all_{instruments, exchanges, assets}")
+        logging.info("... catalogs imported!")
 
     def __repr__(self):
         return "Kaiko Client set up with \n\tBase URL: {}\n\tAPI Key : {}[...]".format(self.base_url, self.api_key[:5])
@@ -162,10 +164,7 @@ class KaikoData:
 
         self._form_url()
 
-        self.logs = StringIO()
-        logging.basicConfig(stream=self.logs, level=logging.DEBUG)
-        self._log = logging.getLogger(__name__)
-        self._log.info(f"Initiated data object\n{self.__repr__()}")
+        logging.info(f"\n\nInitiated data object\n{self.__repr__()}\n")
 
     def _form_url(self):
         self.url = self.endpoint.format(**self.req_params)
@@ -306,7 +305,7 @@ def add_price_levels(df):
 
 class OrderBookSnapshots(KaikoData):
     """
-    Order-book data
+    Order-book snapshot data
     """
     def __init__(self, exchange, instrument, instrument_class: str = 'spot', params: dict = dict(page_size=100),
                  client=None,
@@ -344,7 +343,7 @@ class OrderBookSnapshots(KaikoData):
 
 class OrderBookAggregations(KaikoData):
     """
-    Order-book data
+    Order-book data statistics (averages)
     """
     def __init__(self, exchange, instrument, instrument_class: str = 'spot', params: dict = dict(page_size=100),
                  client=None,
@@ -379,6 +378,8 @@ class OrderBookAggregations(KaikoData):
 
 
 if __name__ == '__main__':
+    FORMAT = "%(asctime)-15s %(levelname)-8s | %(lineno)d %(filename)s: %(message)s"
+    logging.basicConfig(filename='/var/tmp/kaiko.log', level=logging.DEBUG, format=FORMAT, filemode='a')
     # test = OrderBookAverages('cbse', 'btc-usd', start_time='2020-08-06', interval='10m')
 
     test = Candles('cbse', 'eth-usd', start_time='2020-08-06', interval='1d')

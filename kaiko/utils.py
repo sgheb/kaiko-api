@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from time import sleep
+import logging
 
 default_headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
 default_df_formatter = lambda res: pd.DataFrame(res['data'])
@@ -48,7 +49,7 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
     :type pagination: bool
     :return: JSON response if the field 'result' is 'success'.
     """
-    # use default sessionR
+    # use default session
     session = requests_retry_session(**session_params)
 
     response = session.get(url, headers=headers, params=params)
@@ -65,11 +66,12 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
             res['total_queries'] += 1
             sleep(sleep_time)
 
-    # try:
-    #     if res['result'] == 'success':
-    #         return res
-    # except Exception as e:
-    #     raise ValueError('Data request failed \n%s' % (res))
+    try:
+        if res['result'] == 'success':
+            pass
+    except Exception as e:
+        logging.error(f"{e}")
+        logging.error('Data request failed - here is what was returned:\n%s' % (res))
     return res
 
 
