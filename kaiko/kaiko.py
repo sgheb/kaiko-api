@@ -221,7 +221,7 @@ class KaikoData:
         self.client.load_catalogs()
 
 
-class TickTrades(KaikoData):
+class Trades(KaikoData):
     """
     Tick-by-tick trade data
     """
