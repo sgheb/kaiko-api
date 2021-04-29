@@ -6,11 +6,8 @@ Please note that this repository is not officially maintained by Kaiko, contribu
 
 ### Importing the API to a project
 
-The module can be directly added to Python path 
+Available from PyPi via a ``` pip install kaiko ``` 
 ```python
-import sys
-sys.path.append('kaiko-api')
-sys.path.append('kaiko-api/kaiko')
 import kaiko
 ```
 
@@ -19,7 +16,7 @@ import kaiko
 Create a data store from the class Candles.  The example below downloads all the daily 
 candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `df`:
 ```python
-ds = kaiko.Candles('lmax', 'btc-usd', start_time='2020-08', time_interval='1d')
+ds = kaiko.Candles('lmax', 'btc-usd', start_time='2020-08', interval='1d')
 ds.df
 ```
 ```buildoutcfg
@@ -33,3 +30,5 @@ timestamp                                ...
 2020-08-06  11758.5  11916.000  11580.0  ...   8281.78  11763.846493  18411.0
 2020-08-07  11773.5  11925.000  11750.5  ...   1407.75  11845.449098   2851.0
 ```
+
+The datastore takes parameters in accordance to the documentation found at https://docs.kaiko.com/. The date format is flexible and is translated from a pandas datetime format to the native format of the API.
