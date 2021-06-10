@@ -18,7 +18,9 @@ candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `d
 ```python
 # Setting a client with your API key
 kc = kaiko.Client(api_key='<YOUR_API_KEY_HERE>')
+# Getting some simple daily candles
 ds = kaiko.Candles('lmax', 'btc-usd', start_time='2020-08', interval='1d', client=kc)
+# Retrieve the dataframe containing the data
 ds.df
 ```
 ```buildoutcfg
