@@ -50,7 +50,7 @@ _URL_AGGREGATES_OHLCV = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}
                           '/ohlcv'
 _URL_AGGREGATES_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
                        '/vwap'
-_URL_AGGREGATES_COHLCV = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
+_URL_AGGREGATES_COHLCV_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
                          '/count_ohlcv_vwap'
 
 #### Pricing and valuation data ####
@@ -713,7 +713,7 @@ def add_price_levels(df):
 
 class Aggregates(KaikoData):
     """
-    OHLCV, VWAP or COHLCV
+    OHLCV, VWAP or COHLCV_VWAP
 
     data_version is latest by default
     instrument_class is spot by default
@@ -775,7 +775,7 @@ class Aggregates(KaikoData):
     timestamp	Timestamp at which the interval begins.
     price	Volume-weighted average price. null when no trades reported.
 
-    ---------------------------------------------------------------------   COHLCV   ---------------------------------------------------------------------
+    ---------------------------------------------------------------------   COHLCV_VWAP   ---------------------------------------------------------------------
         
     Retrieves the trade count, OHLCV and VWAP history for an instrument on an exchange. The interval parameter is 
     suffixed with s, m, h or d to specify seconds, minutes, hours or days, respectively. By making use of the sort parameter, 
@@ -806,12 +806,13 @@ class Aggregates(KaikoData):
     low	        Lowest price during interval. null when no trades reported.
     close	    Closing price of interval. null when no trades reported.
     volume	    Volume traded in interval. 0 when no trades reported.
+    price       Volume weighted average price.
     """
     def __init__(self, exchange: str, instrument: str, type_of_aggregate: str = 'OHLCV', instrument_class: str = 'spot', params: dict = dict(page_size=100000), 
                 data_version: str = 'latest', client: KaikoClient = None, **kwargs):
 
         # Initialize endpoint required parameters
-        assert type_of_aggregate in ['OHLCV', 'COHLCV', 'VWAP'], "type_of_aggregate needs to be either OHLCV, COHLCV or VWAP"
+        assert type_of_aggregate in ['OHLCV', 'COHLCV_VWAP', 'VWAP'], "type_of_aggregate needs to be either OHLCV, COHLCV_VWAP or VWAP"
         self.req_params = dict(commodity='trades',
                                data_version=data_version,
                                exchange=exchange,
@@ -820,7 +821,7 @@ class Aggregates(KaikoData):
                                )
 
         self.parameter_space = 'continuation_token,end_time,interval,page_size,start_time,sort'.split(',')
-        endpoints = {'OHLCV': _URL_AGGREGATES_OHLCV, 'COHLCV': _URL_AGGREGATES_COHLCV, 'VWAP': _URL_AGGREGATES_VWAP}
+        endpoints = {'OHLCV': _URL_AGGREGATES_OHLCV, 'COHLCV_VWAP': _URL_AGGREGATES_COHLCV_VWAP, 'VWAP': _URL_AGGREGATES_VWAP}
         endpoint = endpoints[type_of_aggregate]
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
