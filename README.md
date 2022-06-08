@@ -15,7 +15,6 @@ import kaiko
 
 ### Example 1: Getting some candles (Count OHLCV VWAP)
 
-NEEDS TO BE ADAPTED !!!
 
 Create a data store from the class Candles.  The example below downloads all the daily 
 candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `df`:
