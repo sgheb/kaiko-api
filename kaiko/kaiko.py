@@ -62,7 +62,7 @@ _URL_PRICING_VALUATION = 'v2/data/trades.{data_version}/valuation'
 #### DEX liquidity data ####
 
 _URL_DEX_LIQUIDITY_EVENTS = 'v2/data/liquidity.v1/events'
-_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots'
+_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots?pool_address={pool_address}'
 
 #### Risk management data ####
 
@@ -248,7 +248,7 @@ class KaikoData:
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -322,7 +322,7 @@ class Trades(KaikoData):
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -828,7 +828,7 @@ class Aggregates(KaikoData):
         self._request_api()
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -943,7 +943,7 @@ class AssetPricing(KaikoData):
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
         data_ = res['data']
-        df = pd.DataFrame(data_)
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -1064,7 +1064,7 @@ class Valuation(KaikoData):
         if 'sources' in data_[0].keys(): ## hacky solution for now
             data_ = format_sources_valuation(data_)
         
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -1112,7 +1112,9 @@ class DEXLiquidityEvents(KaikoData):
     """
 
     def __init__(self, params: dict = dict(), client=None, **kwargs):
-
+        '''
+        parameters : exchange, pool, pool_contains, block, start_time, end_time, sort, type
+        '''
         # Initialize endpoint required parameters
         self.req_params = dict()
 
@@ -1125,7 +1127,7 @@ class DEXLiquidityEvents(KaikoData):
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
@@ -1162,7 +1164,9 @@ class DEXLiquiditySnapshots(KaikoData):
     """
 
     def __init__(self, pool_address: str, params: dict = dict(), client=None, **kwargs):
-
+        '''
+        Parameters are: pool_address, start_block, end_block, start_time, end_time, sort
+        '''
         # Initialize endpoint required parameters
         self.req_params = dict(pool_address=pool_address)
 
@@ -1175,7 +1179,7 @@ class DEXLiquiditySnapshots(KaikoData):
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'])
+        df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df

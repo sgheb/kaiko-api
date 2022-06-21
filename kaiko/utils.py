@@ -65,7 +65,7 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
             sleep(sleep_time)
 
     try:
-        if res['result'] == 'success':
+        if ('result' in res and res['result'] == 'success') or ('result' not in res):
             pass
     except Exception as e:
         logging.error(f"{e}")
