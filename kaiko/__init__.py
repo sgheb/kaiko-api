@@ -3,7 +3,7 @@
 #
 
 # Version number
-__version__ = "0.1"
+__version__ = "0.3"
 
-from kaiko.kaiko import Candles, KaikoData, KaikoClient, OrderBookSnapshots, OrderBookAggregations, Trades
+from kaiko.kaiko import *
 import kaiko.utils as utils

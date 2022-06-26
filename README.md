@@ -2,7 +2,9 @@
 A python wrapper to use Kaiko's data API.
 Please note that this repository is not officially maintained by Kaiko, contributions are welcome!
 
-## How to use 
+## Notes on this version 
+
+For the current implementation: Valuation and DEXLiquidityEvents and DexLiquiditySnapshots are not stable yet.
 
 ### Importing the API to a project
 
@@ -13,6 +15,7 @@ import kaiko
 
 ### Example 1: Getting some candles (Count OHLCV VWAP)
 
+
 Create a data store from the class Candles.  The example below downloads all the daily 
 candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `df`:
 ```python
@@ -20,7 +23,7 @@ candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `d
 kc = kaiko.KaikoClient(api_key='<YOUR_API_KEY_HERE>')
 
 # Getting some simple daily candles
-ds = kaiko.Candles('lmax', 'btc-usd', start_time='2020-08', interval='1d', client=kc)
+ds = kaiko.Aggregates(type_of_aggregate = 'COHLCV', exchange = 'lmax', instrument = 'btc-usd', start_time='2020-08', interval='1d', client=kc)
 
 # Retrieve the dataframe containing the data
 ds.df

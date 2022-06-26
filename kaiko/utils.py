@@ -10,7 +10,7 @@ from time import sleep
 import logging
 
 default_headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
-default_df_formatter = lambda res: pd.DataFrame(res['data'])
+default_df_formatter = lambda res, extra_args = {}: pd.DataFrame(res['data'])
 
 # Sleep time between consecutive queries (in seconds)
 sleep_time = 0.1
@@ -35,7 +35,7 @@ def requests_retry_session(retries=5, backoff_factor=0.3, status_forcelist=(500,
 
 
 def request_data(url: str, headers: dict = default_headers, params: dict = None, session_params: dict = {},
-                 pagination: bool = True):
+                 pagination: bool = True, **kwargs):
     """
     Makes the request from the REST endpoint and returns the json response.
 
@@ -51,10 +51,8 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
     """
     # use default session
     session = requests_retry_session(**session_params)
-
     response = session.get(url, headers=headers, params=params)
     res = response.json()
-
     if pagination:
         res_tmp = res
         res['total_queries'] = 1
@@ -67,7 +65,7 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
             sleep(sleep_time)
 
     try:
-        if res['result'] == 'success':
+        if ('result' in res and res['result'] == 'success') or ('result' not in res):
             pass
     except Exception as e:
         logging.error(f"{e}")
@@ -75,7 +73,7 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
     return res
 
 
-def request_df(url: str, return_query: bool = False, df_formatter=default_df_formatter, **kwargs):
+def request_df(url: str, return_query: bool = False, return_res: bool = False, df_formatter = default_df_formatter, extra_args: dict = {}, **kwargs):
     """
     Make a simple request from the API.
 
@@ -90,7 +88,7 @@ def request_df(url: str, return_query: bool = False, df_formatter=default_df_for
     """
     res = request_data(url, **kwargs)
     try:
-        df = df_formatter(res)
+        df = df_formatter(res, extra_args = extra_args)
         if 'query' in res.keys():
             query = res['query']
         else:
@@ -98,9 +96,12 @@ def request_df(url: str, return_query: bool = False, df_formatter=default_df_for
     except Exception as e:
         query = (e, res)
         df = pd.DataFrame()
-
-    if return_query:
+    if return_query and return_res:
+        return df, query, res
+    elif return_query and not(return_res):
         return df, query
+    elif not(return_query) and return_res:
+        return df, res
     else:
         return df
 
