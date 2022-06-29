@@ -263,6 +263,20 @@ class KaikoData:
                                                 extra_args = self.extra_args,
                                                 pagination = self.pagination
                                                 )
+    def load_next(self):
+        if self.query_res is None:
+            return
+        else:
+            if 'next_url' in self.query_res.keys():
+                session = ut.requests_retry_session()
+                response = session.get(self.url, headers=self.client.headers, params=self.params)
+                res_tmp = response.json()
+                self.query_res['total_queries'] = 1 if 'total_queries' not in self.query_res else self.query_res['total_queries'] + 1
+                self.query_res['data'] += res_tmp['data']
+                self.df = pd.concat(self.df_formatter(self.query_res['data']))
+                self.current_df = self.df_formatter(res_tmp['data'])
+                return self.current_df
+
 
     def load_catalogs(self):
         """ Loads catalogs in the client """
