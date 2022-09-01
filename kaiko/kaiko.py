@@ -62,7 +62,8 @@ _URL_PRICING_VALUATION = 'v2/data/trades.{data_version}/valuation'
 #### DEX liquidity data ####
 
 _URL_DEX_LIQUIDITY_EVENTS = 'v2/data/liquidity.v1/events'
-_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots?pool_address={pool_address}'
+_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots'
+
 
 #### Risk management data ####
 
@@ -159,6 +160,7 @@ class KaikoClient:
         1) List of instruments -> self.all_instruments
         2) List of exchanges   -> self.all_exchanges
         3) List of assets      -> self.all_assets
+        4) List of pools       -> self.all_pools
 
         Those are public endpoints which do not require authentication.
         """
@@ -174,7 +176,9 @@ class KaikoClient:
         self.all_exchanges = ut.request_df(_URL_REFERENCE_DATA_API + 'exchanges')
         self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
 
-        print("\t...done! - available under client.all_{instruments, exchanges, assets}")
+        self.all_pools = ut.request_df(_URL_REFERENCE_DATA_API + 'pools')
+
+        print("\t...done! - available under client.all_{instruments, exchanges, assets, pools}")
         logging.info("... catalogs imported!")
 
     def __repr__(self):
@@ -938,7 +942,7 @@ class AssetPricing(KaikoData):
     def __init__(self, base_asset: str, quote_asset: str, type_of_pricing: str = 'SpotDirectExchangeRate', params: dict = dict(page_size=1000), data_version: str = 'latest', client: KaikoClient = None, **kwargs):
 
         # Initialize endpoint required parameters
-        assert type_of_pricing in ['SpotDirectExchangeRate', 'SpotExchangeRate'], "type_of_pricing needs to be either AssetPrice, CrossPrice or Valuation"
+        assert type_of_pricing in ['SpotDirectExchangeRate', 'SpotExchangeRate'], "type_of_pricing needs to be either SpotExchangeRate, SpotDirectExchangeRate"
         self.req_params = dict(data_version=data_version,
                                 base_asset=base_asset,
                                 quote_asset=quote_asset,
@@ -1101,7 +1105,7 @@ class DEXLiquidityEvents(KaikoData):
 
     Parameter	        Required	Description	Example
     exchange	        No	        Should be one of the currently supported DEX	usp2
-    pool	            No	        Pool address related to the liquidity event. Default: all liquidity pools.	0x14de8287adc90f0f95bf567c0707670de52e3813
+    pool_address	    No	        Pool address related to the liquidity event. Default: all liquidity pools.	0x14de8287adc90f0f95bf567c0707670de52e3813
     pool_contains	    No	        Liquidity events including the requested token. Default: all available tokens.	weth or weth,usdt,usdc
     block	            No	        Block height.	129876
     start_time	        No	        Starting time in ISO 8601 (inclusive)	2022-04-01T00:00:00.000Z
@@ -1132,7 +1136,7 @@ class DEXLiquidityEvents(KaikoData):
         # Initialize endpoint required parameters
         self.req_params = dict()
 
-        self.parameter_space = 'exchange,pool,pool_contains,block,start_time,end_time,sort,type'.split(',')
+        self.parameter_space = 'exchange,pool_address,block_number,type,start_time,end_time,sort,pool_contains,page_size,start_block,end_block'.split(',')
         endpoint = _URL_DEX_LIQUIDITY_EVENTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
@@ -1177,14 +1181,14 @@ class DEXLiquiditySnapshots(KaikoData):
     datetime	    Timestamp at which the interval begins.                 In milliseconds.	1650441900000
     """
 
-    def __init__(self, pool_address: str, params: dict = dict(), client=None, **kwargs):
+    def __init__(self, params: dict = dict(), client=None, **kwargs):
         '''
         Parameters are: pool_address, start_block, end_block, start_time, end_time, sort
         '''
         # Initialize endpoint required parameters
-        self.req_params = dict(pool_address=pool_address)
+        self.req_params = dict()
 
-        self.parameter_space = 'start_block,end_block,start_time,end_time,sort'.split(',')
+        self.parameter_space = 'pool_address,exchange,start_block,end_block,start_time,end_time,sort,page_size'.split(',')
         endpoint = _URL_DEX_LIQUIDITY_SNAPSHOTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
