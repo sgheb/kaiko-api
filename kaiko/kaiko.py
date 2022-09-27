@@ -963,7 +963,7 @@ class AssetPricing(KaikoData):
         data_ = res['data']
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit = 's')
         return df
 
 '''
@@ -1199,7 +1199,7 @@ class DEXLiquiditySnapshots(KaikoData):
     def df_formatter(res, extra_args: dict = {}):
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit='s')
         return df
 
 if __name__ == '__main__':

@@ -57,6 +57,7 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
         res_tmp = res
         res['total_queries'] = 1
         while 'next_url' in res_tmp.keys():
+            logging.warning(f"total_queries = {res['total_queries']}")
             response = session.get(res_tmp['next_url'], headers=headers)
             res_tmp = response.json()
             # append data to previous query
@@ -106,14 +107,14 @@ def request_df(url: str, return_query: bool = False, return_res: bool = False, d
         return df
 
 
-def convert_timestamp_unix_to_datetime(ts):
+def convert_timestamp_unix_to_datetime(ts, unit='ms'):
     """
     Convert a unix millisecond timestamp to pandas datetime format.
 
     :param ts: Timestamp in unix millisecond format.
     :return: 
     """
-    return pd.to_datetime(ts, unit='ms')
+    return pd.to_datetime(ts, unit = unit)
 
 
 def convert_timestamp_str_to_datetime(ts: str):
