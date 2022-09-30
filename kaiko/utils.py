@@ -13,7 +13,7 @@ default_headers = {'Accept': 'application/json', 'Accept-Encoding': 'gzip'}
 default_df_formatter = lambda res, extra_args = {}: pd.DataFrame(res['data'])
 
 # Sleep time between consecutive queries (in seconds)
-sleep_time = 0.1
+sleep_time = 0.01
 
 def requests_retry_session(retries=5, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
     """
@@ -72,6 +72,78 @@ def request_data(url: str, headers: dict = default_headers, params: dict = None,
         logging.error(f"{e}")
         logging.error('Data request failed - here is what was returned:\n%s' % (res))
     return res
+
+def request_next_data(next_url: str, n_next: int = 1, headers: dict = default_headers, session_params: dict = {}, **kwargs):
+    """
+    Makes the request from the REST endpoint and returns the json response.
+
+    :param url:
+    :param headers:
+    :param params: Dictionary containing the request parameters.
+    :type params: dict
+    :param session_params: Session parameters for the get request.
+    :type session_params: dict
+    :param pagination: Continue requests using pagination with next_urls?
+    :type pagination: bool
+    :return: JSON response if the field 'result' is 'success'.
+    """
+    # use default session
+    session = requests_retry_session(**session_params)
+
+    response = session.get(next_url, headers=headers)
+    res = response.json()
+
+    res_tmp = res
+    counter = 1
+    while 'next_url' in res_tmp.keys():
+        response = session.get(res_tmp['next_url'], headers=headers)
+        res_tmp = response.json()
+        # append data to previous query
+        res['data'] = res['data'] + res_tmp['data']
+        counter += 1
+        sleep(sleep_time)
+        if counter > n_next:
+            break
+    try:
+        if ('result' in res and res['result'] == 'success') or ('result' not in res):
+            pass
+    except Exception as e:
+        logging.error(f"{e}")
+        logging.error('Data request failed - here is what was returned:\n%s' % (res))
+    return res
+
+def request_next_df(next_url: str, return_query: bool = False, return_res: bool = False, df_formatter = default_df_formatter, n_next: int = 1,  extra_args: dict = {}, **kwargs):
+    """
+    Make a simple request from the API.
+
+    :param url: Full URL of the query.
+    :type url: str
+    :param return_query: Whether to return the query used or not
+    :type return_query: bool
+    :param headers: Headers for the query.
+    :type headers: dict, optional
+    :param df_formatter: Formatter function to transform the JSON's data result into a DataFrame.
+    :return: DataFrame containing the data.
+    """
+    res = request_next_data(next_url, n_next, **kwargs)
+    try:
+        df = df_formatter(res, extra_args = extra_args)
+        if 'query' in res.keys():
+            query = res['query']
+        else:
+            query = None
+    except Exception as e:
+        query = (e, res)
+        df = pd.DataFrame()
+    if return_query and return_res:
+        return df, query, res
+    elif return_query and not(return_res):
+        return df, query
+    elif not(return_query) and return_res:
+        return df, res
+    else:
+        return df
+
 
 
 def request_df(url: str, return_query: bool = False, return_res: bool = False, df_formatter = default_df_formatter, extra_args: dict = {}, **kwargs):

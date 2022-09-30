@@ -183,7 +183,7 @@ class KaikoClient:
 
     def __repr__(self):
         return "Kaiko Client set up with \n\tBase URL: {}\n\tAPI Key : {}[...]".format(self.base_url, self.api_key[:5])
-
+    
 
 class KaikoData:
     """
@@ -200,7 +200,7 @@ class KaikoData:
         return f"KaikoData setup with\n- URL\n\t {self.url},\n- Required parameters:\n\t{self.req_params}," \
                f"\n- Optional parameters:\n\t{self.params}"
 
-    def __init__(self, endpoint, req_params: dict, params: dict = {}, client=None, pagination=True, extra_args: dict = {}, **kwargs):
+    def __init__(self, endpoint: str, req_params: dict, params: dict = {}, client: KaikoClient = None, pagination: bool = False, extra_args: dict = {}, **kwargs):
         self.client = client or KaikoClient()
         self.endpoint = self.client.base_url + endpoint
         self.params = params
@@ -248,7 +248,7 @@ class KaikoData:
     def _add_to_req_params(self, **kwargs):
         for key in kwargs:
             if key in self.req_params.keys():
-                self.req_params[key] = kwargs[key]
+                self.req_params[key] = kwargs[key] 
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
@@ -267,6 +267,23 @@ class KaikoData:
                                                 extra_args = self.extra_args,
                                                 pagination = self.pagination
                                                 )
+        self.next_url = None if not('next_url' in self.query_res.keys()) else self.query_res['next_url']
+
+
+    def request_next(self, n_next: int = 1) -> pd.DataFrame:
+        if not(self.next_url is None):
+            self.df, self.query_api, self.query_res = ut.request_next_df(self.next_url, 
+                                                                        return_query = True, 
+                                                                        return_res = True,
+                                                                        headers = self.client.headers, 
+                                                                        df_formatter = self.df_formatter,
+                                                                        n_next = n_next,
+                                                                        extra_args = self.extra_args)
+            self.next_url = None if not('next_url' in self.query_res.keys()) else self.query_res['next_url']
+            return self.df
+        else:
+            return pd.DataFrame()
+
     def load_next(self):
         if self.query_res is None:
             return
@@ -963,7 +980,7 @@ class AssetPricing(KaikoData):
         data_ = res['data']
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('timestamp', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit = 's')
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
 
 '''
@@ -1147,7 +1164,7 @@ class DEXLiquidityEvents(KaikoData):
     def df_formatter(res, extra_args: dict = {}):
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit ='s')
         return df
 
 class DEXLiquiditySnapshots(KaikoData):
