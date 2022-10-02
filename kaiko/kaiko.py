@@ -7,76 +7,12 @@ from os import environ
 import pandas as pd
 
 import kaiko.utils as ut
+import kaiko.constants as cste
 
 try:
     from cStringIO import StringIO      # Python 2
 except ImportError:
     from io import StringIO
-
-# Base URLs
-_BASE_URL_KAIKO_US = 'https://us.market-api.kaiko.io/'
-_BASE_URL_KAIKO_EU = 'https://eu.market-api.kaiko.io/'
-_BASE_URL_RAPIDAPI = 'https://kaiko-cryptocurrency-market-data.p.rapidapi.com/'  # Not supported yet
-_BASE_URLS = dict(us=_BASE_URL_KAIKO_US, eu=_BASE_URL_KAIKO_EU, rapidapi=_BASE_URL_RAPIDAPI)
-
-################################################# API endpoints #######################################
-_URL_REFERENCE_DATA_API = 'https://reference-data-api.kaiko.io/v1/'
-
-#### Trade data ####
-
-_URL_TRADE_HISTORICAL_TRADES = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                         '/trades'
-
-#### Order book data ####
-
-_URL_ORDER_BOOK_SNAPSHOTS_FULL = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                 '/snapshots/full'
-_URL_ORDER_BOOK_SNAPSHOTS_RAW = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                '/snapshots/raw'
-_URL_ORDER_BOOK_SNAPSHOTS_DEPTH = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                  '/snapshots/depth'
-_URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                     '/snapshots/slippage'
-
-_URL_ORDER_BOOK_AGGREGATIONS_FULL = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}' \
-                                    '/{instrument}/ob_aggregations/full'
-_URL_ORDER_BOOK_AGGREGATIONS_DEPTH = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                     '/ob_aggregations/depth'
-_URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                        '/ob_aggregations/depth'
-
-#### Aggregates data ####
-_URL_AGGREGATES_OHLCV = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                          '/ohlcv'
-_URL_AGGREGATES_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                       '/vwap'
-_URL_AGGREGATES_COHLCV_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                         '/count_ohlcv_vwap'
-
-#### Pricing and valuation data ####
-
-_URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE = 'v2/data/trades.{data_version}/spot_direct_exchange_rate/{base_asset}/{quote_asset}'
-_URL_PRICING_SPOT_EXCHANGE_RATE = 'v2/data/trades.{data_version}/spot_exchange_rate/{base_asset}/{quote_asset}'
-_URL_PRICING_VALUATION = 'v2/data/trades.{data_version}/valuation'
-
-#### DEX liquidity data ####
-
-_URL_DEX_LIQUIDITY_EVENTS = 'v2/data/liquidity.v1/events'
-_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots'
-
-
-#### Risk management data ####
-
-_URL_RISK_VALUE_AT_RISK = 'v2/data/analytics.v2/value_at_risk?bases={bases}&exchanges={exchanges}&quantities={quantities}&quote={quote}&risk_level={risk_level}&' \
-                          'start_time={start_time}&end_time={end_time}&sources={sources}'
-
-#### Reference data ####
-
-_URL_DERIVATIVES_REFERENCE = 'v2/data/derivatives.v2/reference'
-_URL_DERIVATIVES_RISK = 'v2/data/derivatives.v2/risk'
-_URL_DERIVATIVES_PRICE = 'v2/data/derivatives.v2/price'
-
-
 
 
 # Default settings?
@@ -116,7 +52,7 @@ class KaikoClient:
 
     def __init__(self, api_key: str = '', base_url: str = 'us'):
         assert base_url in ['us', 'eu'], "base_url  needs to be either us or eu"
-        self.base_url = _BASE_URLS[base_url]
+        self.base_url = cste._BASE_URLS[base_url]
 
         self._api_key_input = api_key
 
@@ -168,15 +104,15 @@ class KaikoClient:
         logging.info("Downloading catalogs...")
 
         # List of all instruments
-        self.all_instruments = ut.request_df(_URL_REFERENCE_DATA_API + 'instruments')
+        self.all_instruments = ut.request_df(cste._URL_REFERENCE_DATA_API + 'instruments')
         # replace None values by 'ongoing'
         self.all_instruments['trade_end_time'] = self.all_instruments['trade_end_time'].apply(lambda x: x or 'ongoing')
 
         # List of exchanges and assets
-        self.all_exchanges = ut.request_df(_URL_REFERENCE_DATA_API + 'exchanges')
-        self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
+        self.all_exchanges = ut.request_df(cste._URL_REFERENCE_DATA_API + 'exchanges')
+        self.all_assets = ut.request_df(cste._URL_REFERENCE_DATA_API + 'assets')
 
-        self.all_pools = ut.request_df(_URL_REFERENCE_DATA_API + 'pools')
+        self.all_pools = ut.request_df(cste._URL_REFERENCE_DATA_API + 'pools')
 
         print("\t...done! - available under client.all_{instruments, exchanges, assets, pools}")
         logging.info("... catalogs imported!")
@@ -349,7 +285,7 @@ class Trades(KaikoData):
 
         self.parameter_space = 'start_time,end_time,page_size,continuation_token'.split(',')
 
-        endpoint = _URL_TRADE_HISTORICAL_TRADES
+        endpoint = cste._URL_TRADE_HISTORICAL_TRADES
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -522,7 +458,7 @@ class OrderBookSnapshots(KaikoData):
             self.parameter_space = 'continuation_token,end_time,page_size,sort,start_time,slippage,slippage_ref'.split(',')
         self.extra_args = {'type_of_ob': type_of_ob}
 
-        endpoints = {'Full': _URL_ORDER_BOOK_SNAPSHOTS_FULL, 'Raw': _URL_ORDER_BOOK_SNAPSHOTS_RAW, 'Depth': _URL_ORDER_BOOK_SNAPSHOTS_DEPTH, 'Slippage': _URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE}
+        endpoints = {'Full': cste._URL_ORDER_BOOK_SNAPSHOTS_FULL, 'Raw': cste._URL_ORDER_BOOK_SNAPSHOTS_RAW, 'Depth': cste._URL_ORDER_BOOK_SNAPSHOTS_DEPTH, 'Slippage': cste._URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE}
         endpoint = endpoints[type_of_ob]
         self.req_params = dict(commodity = 'order_book_snapshots',
                                 data_version = data_version,
@@ -698,7 +634,7 @@ class OrderBookAggregations(KaikoData):
         else:
             self.parameter_space = 'continuation_token,end_time,interval,page_size,sort,start_time'.split(',')
     
-        endpoints = {'Full': _URL_ORDER_BOOK_AGGREGATIONS_FULL, 'Depth': _URL_ORDER_BOOK_AGGREGATIONS_DEPTH, 'Slippage': _URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE}
+        endpoints = {'Full': cste._URL_ORDER_BOOK_AGGREGATIONS_FULL, 'Depth': cste._URL_ORDER_BOOK_AGGREGATIONS_DEPTH, 'Slippage': cste._URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE}
         endpoint = endpoints[type_of_ob]
 
         self.extra_args = {'type_of_ob': type_of_ob}
@@ -856,7 +792,7 @@ class Aggregates(KaikoData):
                                )
 
         self.parameter_space = 'continuation_token,end_time,interval,page_size,start_time,sort'.split(',')
-        endpoints = {'OHLCV': _URL_AGGREGATES_OHLCV, 'COHLCV_VWAP': _URL_AGGREGATES_COHLCV_VWAP, 'VWAP': _URL_AGGREGATES_VWAP}
+        endpoints = {'OHLCV': cste._URL_AGGREGATES_OHLCV, 'COHLCV_VWAP': cste._URL_AGGREGATES_COHLCV_VWAP, 'VWAP': cste._URL_AGGREGATES_VWAP}
         endpoint = endpoints[type_of_aggregate]
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
@@ -968,7 +904,7 @@ class AssetPricing(KaikoData):
             self.parameter_space = 'end_time,exclude_exchanges,interval,include_exchanges,page_size,start_time,sort,sources'.split(',')
         else:
             self.parameter_space = 'end_time,exclude_exchanges,interval,include_exchanges,outliers_strategy,outliers_min_data,outliers_threshold,page_size,start_time,sort,sources'.split(',')
-        endpoints = {'SpotDirectExchangeRate': _URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE, 'SpotExchangeRate': _URL_PRICING_SPOT_EXCHANGE_RATE}
+        endpoints = {'SpotDirectExchangeRate': cste._URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE, 'SpotExchangeRate': cste._URL_PRICING_SPOT_EXCHANGE_RATE}
         endpoint = endpoints[type_of_pricing]
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
@@ -1085,7 +1021,7 @@ class Valuation(KaikoData):
                                )
 
         self.parameter_space = 'continuation_token,end_time,exchanges,interval,start_time,sources'.split(',')
-        endpoint = _URL_PRICING_VALUATION
+        endpoint = cste._URL_PRICING_VALUATION
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -1154,7 +1090,7 @@ class DEXLiquidityEvents(KaikoData):
         self.req_params = dict()
 
         self.parameter_space = 'exchange,pool_address,block_number,type,start_time,end_time,sort,pool_contains,page_size,start_block,end_block'.split(',')
-        endpoint = _URL_DEX_LIQUIDITY_EVENTS
+        endpoint = cste._URL_DEX_LIQUIDITY_EVENTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -1206,7 +1142,7 @@ class DEXLiquiditySnapshots(KaikoData):
         self.req_params = dict()
 
         self.parameter_space = 'pool_address,exchange,start_block,end_block,start_time,end_time,sort,page_size'.split(',')
-        endpoint = _URL_DEX_LIQUIDITY_SNAPSHOTS
+        endpoint = cste._URL_DEX_LIQUIDITY_SNAPSHOTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
