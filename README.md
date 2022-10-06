@@ -23,7 +23,7 @@ candles for BTC/USD on LMAX from August 2020 and stores it into the attribute `d
 kc = kaiko.KaikoClient(api_key='<YOUR_API_KEY_HERE>')
 
 # Getting some simple daily candles
-ds = kaiko.Aggregates(type_of_aggregate = 'COHLCV', exchange = 'lmax', instrument = 'btc-usd', start_time='2020-08', interval='1d', client=kc)
+ds = kaiko.Aggregates(type_of_aggregate = 'COHLCV_VWAP', exchange = 'cbse', instrument = 'btc-usdt', start_time='2020-08', interval='1d', client=kc)
 
 # Retrieve the dataframe containing the data
 ds.df

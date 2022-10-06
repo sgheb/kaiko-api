@@ -7,75 +7,12 @@ from os import environ
 import pandas as pd
 
 import kaiko.utils as ut
+import kaiko.constants as cste
 
 try:
     from cStringIO import StringIO      # Python 2
 except ImportError:
     from io import StringIO
-
-# Base URLs
-_BASE_URL_KAIKO_US = 'https://us.market-api.kaiko.io/'
-_BASE_URL_KAIKO_EU = 'https://eu.market-api.kaiko.io/'
-_BASE_URL_RAPIDAPI = 'https://kaiko-cryptocurrency-market-data.p.rapidapi.com/'  # Not supported yet
-_BASE_URLS = dict(us=_BASE_URL_KAIKO_US, eu=_BASE_URL_KAIKO_EU, rapidapi=_BASE_URL_RAPIDAPI)
-
-################################################# API endpoints #######################################
-_URL_REFERENCE_DATA_API = 'https://reference-data-api.kaiko.io/v1/'
-
-#### Trade data ####
-
-_URL_TRADE_HISTORICAL_TRADES = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                         '/trades'
-
-#### Order book data ####
-
-_URL_ORDER_BOOK_SNAPSHOTS_FULL = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                 '/snapshots/full'
-_URL_ORDER_BOOK_SNAPSHOTS_RAW = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                '/snapshots/raw'
-_URL_ORDER_BOOK_SNAPSHOTS_DEPTH = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                  '/snapshots/depth'
-_URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                     '/snapshots/slippage'
-
-_URL_ORDER_BOOK_AGGREGATIONS_FULL = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}' \
-                                    '/{instrument}/ob_aggregations/full'
-_URL_ORDER_BOOK_AGGREGATIONS_DEPTH = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                     '/ob_aggregations/depth'
-_URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}' \
-                                        '/ob_aggregations/depth'
-
-#### Aggregates data ####
-_URL_AGGREGATES_OHLCV = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                          '/ohlcv'
-_URL_AGGREGATES_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                       '/vwap'
-_URL_AGGREGATES_COHLCV_VWAP = 'v2/data/{commodity}.{data_version}/exchanges/{exchange}/{instrument_class}/{instrument}/aggregations' \
-                         '/count_ohlcv_vwap'
-
-#### Pricing and valuation data ####
-
-_URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE = 'v2/data/trades.{data_version}/spot_direct_exchange_rate/{base_asset}/{quote_asset}'
-_URL_PRICING_SPOT_EXCHANGE_RATE = 'v2/data/trades.{data_version}/spot_exchange_rate/{base_asset}/{quote_asset}'
-_URL_PRICING_VALUATION = 'v2/data/trades.{data_version}/valuation'
-
-#### DEX liquidity data ####
-
-_URL_DEX_LIQUIDITY_EVENTS = 'v2/data/liquidity.v1/events'
-_URL_DEX_LIQUIDITY_SNAPSHOTS = 'v2/data/liquidity.v1/snapshots?pool_address={pool_address}'
-
-#### Risk management data ####
-
-_URL_RISK_VALUE_AT_RISK = 'v2/data/analytics.v2/value_at_risk?bases={bases}&exchanges={exchanges}&quantities={quantities}&quote={quote}&risk_level={risk_level}&' \
-                          'start_time={start_time}&end_time={end_time}&sources={sources}'
-
-#### Reference data ####
-
-_URL_DERIVATIVES_REFERENCE = 'v2/data/derivatives.v2/reference'
-_URL_DERIVATIVES_RISK = 'v2/data/derivatives.v2/risk'
-_URL_DERIVATIVES_PRICE = 'v2/data/derivatives.v2/price'
-
-
 
 
 # Default settings?
@@ -115,7 +52,7 @@ class KaikoClient:
 
     def __init__(self, api_key: str = '', base_url: str = 'us'):
         assert base_url in ['us', 'eu'], "base_url  needs to be either us or eu"
-        self.base_url = _BASE_URLS[base_url]
+        self.base_url = cste._BASE_URLS[base_url]
 
         self._api_key_input = api_key
 
@@ -159,6 +96,7 @@ class KaikoClient:
         1) List of instruments -> self.all_instruments
         2) List of exchanges   -> self.all_exchanges
         3) List of assets      -> self.all_assets
+        4) List of pools       -> self.all_pools
 
         Those are public endpoints which do not require authentication.
         """
@@ -166,20 +104,22 @@ class KaikoClient:
         logging.info("Downloading catalogs...")
 
         # List of all instruments
-        self.all_instruments = ut.request_df(_URL_REFERENCE_DATA_API + 'instruments')
+        self.all_instruments = ut.request_df(cste._URL_REFERENCE_DATA_API + 'instruments')
         # replace None values by 'ongoing'
         self.all_instruments['trade_end_time'] = self.all_instruments['trade_end_time'].apply(lambda x: x or 'ongoing')
 
         # List of exchanges and assets
-        self.all_exchanges = ut.request_df(_URL_REFERENCE_DATA_API + 'exchanges')
-        self.all_assets = ut.request_df(_URL_REFERENCE_DATA_API + 'assets')
+        self.all_exchanges = ut.request_df(cste._URL_REFERENCE_DATA_API + 'exchanges')
+        self.all_assets = ut.request_df(cste._URL_REFERENCE_DATA_API + 'assets')
 
-        print("\t...done! - available under client.all_{instruments, exchanges, assets}")
+        self.all_pools = ut.request_df(cste._URL_REFERENCE_DATA_API + 'pools')
+
+        print("\t...done! - available under client.all_{instruments, exchanges, assets, pools}")
         logging.info("... catalogs imported!")
 
     def __repr__(self):
         return "Kaiko Client set up with \n\tBase URL: {}\n\tAPI Key : {}[...]".format(self.base_url, self.api_key[:5])
-
+    
 
 class KaikoData:
     """
@@ -196,7 +136,7 @@ class KaikoData:
         return f"KaikoData setup with\n- URL\n\t {self.url},\n- Required parameters:\n\t{self.req_params}," \
                f"\n- Optional parameters:\n\t{self.params}"
 
-    def __init__(self, endpoint, req_params: dict, params: dict = {}, client=None, pagination=True, extra_args: dict = {}, **kwargs):
+    def __init__(self, endpoint: str, req_params: dict, params: dict = {}, client: KaikoClient = None, pagination: bool = False, extra_args: dict = {}, **kwargs):
         self.client = client or KaikoClient()
         self.endpoint = self.client.base_url + endpoint
         self.params = params
@@ -244,7 +184,7 @@ class KaikoData:
     def _add_to_req_params(self, **kwargs):
         for key in kwargs:
             if key in self.req_params.keys():
-                self.req_params[key] = kwargs[key]
+                self.req_params[key] = kwargs[key] 
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
@@ -263,6 +203,37 @@ class KaikoData:
                                                 extra_args = self.extra_args,
                                                 pagination = self.pagination
                                                 )
+        self.next_url = None if not('next_url' in self.query_res.keys()) else self.query_res['next_url']
+
+
+    def request_next(self, n_next: int = 1) -> pd.DataFrame:
+        if not(self.next_url is None):
+            self.df, self.query_api, self.query_res = ut.request_next_df(self.next_url, 
+                                                                        return_query = True, 
+                                                                        return_res = True,
+                                                                        headers = self.client.headers, 
+                                                                        df_formatter = self.df_formatter,
+                                                                        n_next = n_next,
+                                                                        extra_args = self.extra_args)
+            self.next_url = None if not('next_url' in self.query_res.keys()) else self.query_res['next_url']
+            return self.df
+        else:
+            return pd.DataFrame()
+
+    def load_next(self):
+        if self.query_res is None:
+            return
+        else:
+            if 'next_url' in self.query_res.keys():
+                session = ut.requests_retry_session()
+                response = session.get(self.url, headers=self.client.headers, params=self.params)
+                res_tmp = response.json()
+                self.query_res['total_queries'] = 1 if 'total_queries' not in self.query_res else self.query_res['total_queries'] + 1
+                self.query_res['data'] += res_tmp['data']
+                self.df = pd.concat(self.df_formatter(self.query_res['data']))
+                self.current_df = self.df_formatter(res_tmp['data'])
+                return self.current_df
+
 
     def load_catalogs(self):
         """ Loads catalogs in the client """
@@ -314,7 +285,7 @@ class Trades(KaikoData):
 
         self.parameter_space = 'start_time,end_time,page_size,continuation_token'.split(',')
 
-        endpoint = _URL_TRADE_HISTORICAL_TRADES
+        endpoint = cste._URL_TRADE_HISTORICAL_TRADES
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -487,7 +458,7 @@ class OrderBookSnapshots(KaikoData):
             self.parameter_space = 'continuation_token,end_time,page_size,sort,start_time,slippage,slippage_ref'.split(',')
         self.extra_args = {'type_of_ob': type_of_ob}
 
-        endpoints = {'Full': _URL_ORDER_BOOK_SNAPSHOTS_FULL, 'Raw': _URL_ORDER_BOOK_SNAPSHOTS_RAW, 'Depth': _URL_ORDER_BOOK_SNAPSHOTS_DEPTH, 'Slippage': _URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE}
+        endpoints = {'Full': cste._URL_ORDER_BOOK_SNAPSHOTS_FULL, 'Raw': cste._URL_ORDER_BOOK_SNAPSHOTS_RAW, 'Depth': cste._URL_ORDER_BOOK_SNAPSHOTS_DEPTH, 'Slippage': cste._URL_ORDER_BOOK_SNAPSHOTS_SLIPPAGE}
         endpoint = endpoints[type_of_ob]
         self.req_params = dict(commodity = 'order_book_snapshots',
                                 data_version = data_version,
@@ -663,7 +634,7 @@ class OrderBookAggregations(KaikoData):
         else:
             self.parameter_space = 'continuation_token,end_time,interval,page_size,sort,start_time'.split(',')
     
-        endpoints = {'Full': _URL_ORDER_BOOK_AGGREGATIONS_FULL, 'Depth': _URL_ORDER_BOOK_AGGREGATIONS_DEPTH, 'Slippage': _URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE}
+        endpoints = {'Full': cste._URL_ORDER_BOOK_AGGREGATIONS_FULL, 'Depth': cste._URL_ORDER_BOOK_AGGREGATIONS_DEPTH, 'Slippage': cste._URL_ORDER_BOOK_AGGREGATIONS_SLIPPAGE}
         endpoint = endpoints[type_of_ob]
 
         self.extra_args = {'type_of_ob': type_of_ob}
@@ -821,7 +792,7 @@ class Aggregates(KaikoData):
                                )
 
         self.parameter_space = 'continuation_token,end_time,interval,page_size,start_time,sort'.split(',')
-        endpoints = {'OHLCV': _URL_AGGREGATES_OHLCV, 'COHLCV_VWAP': _URL_AGGREGATES_COHLCV_VWAP, 'VWAP': _URL_AGGREGATES_VWAP}
+        endpoints = {'OHLCV': cste._URL_AGGREGATES_OHLCV, 'COHLCV_VWAP': cste._URL_AGGREGATES_COHLCV_VWAP, 'VWAP': cste._URL_AGGREGATES_VWAP}
         endpoint = endpoints[type_of_aggregate]
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
@@ -924,7 +895,7 @@ class AssetPricing(KaikoData):
     def __init__(self, base_asset: str, quote_asset: str, type_of_pricing: str = 'SpotDirectExchangeRate', params: dict = dict(page_size=1000), data_version: str = 'latest', client: KaikoClient = None, **kwargs):
 
         # Initialize endpoint required parameters
-        assert type_of_pricing in ['SpotDirectExchangeRate', 'SpotExchangeRate'], "type_of_pricing needs to be either AssetPrice, CrossPrice or Valuation"
+        assert type_of_pricing in ['SpotDirectExchangeRate', 'SpotExchangeRate'], "type_of_pricing needs to be either SpotExchangeRate, SpotDirectExchangeRate"
         self.req_params = dict(data_version=data_version,
                                 base_asset=base_asset,
                                 quote_asset=quote_asset,
@@ -933,7 +904,7 @@ class AssetPricing(KaikoData):
             self.parameter_space = 'end_time,exclude_exchanges,interval,include_exchanges,page_size,start_time,sort,sources'.split(',')
         else:
             self.parameter_space = 'end_time,exclude_exchanges,interval,include_exchanges,outliers_strategy,outliers_min_data,outliers_threshold,page_size,start_time,sort,sources'.split(',')
-        endpoints = {'SpotDirectExchangeRate': _URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE, 'SpotExchangeRate': _URL_PRICING_SPOT_EXCHANGE_RATE}
+        endpoints = {'SpotDirectExchangeRate': cste._URL_PRICING_SPOT_DIRECT_EXCHANGE_RATE, 'SpotExchangeRate': cste._URL_PRICING_SPOT_EXCHANGE_RATE}
         endpoint = endpoints[type_of_pricing]
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
@@ -1050,7 +1021,7 @@ class Valuation(KaikoData):
                                )
 
         self.parameter_space = 'continuation_token,end_time,exchanges,interval,start_time,sources'.split(',')
-        endpoint = _URL_PRICING_VALUATION
+        endpoint = cste._URL_PRICING_VALUATION
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -1087,7 +1058,7 @@ class DEXLiquidityEvents(KaikoData):
 
     Parameter	        Required	Description	Example
     exchange	        No	        Should be one of the currently supported DEX	usp2
-    pool	            No	        Pool address related to the liquidity event. Default: all liquidity pools.	0x14de8287adc90f0f95bf567c0707670de52e3813
+    pool_address	    No	        Pool address related to the liquidity event. Default: all liquidity pools.	0x14de8287adc90f0f95bf567c0707670de52e3813
     pool_contains	    No	        Liquidity events including the requested token. Default: all available tokens.	weth or weth,usdt,usdc
     block	            No	        Block height.	129876
     start_time	        No	        Starting time in ISO 8601 (inclusive)	2022-04-01T00:00:00.000Z
@@ -1118,8 +1089,8 @@ class DEXLiquidityEvents(KaikoData):
         # Initialize endpoint required parameters
         self.req_params = dict()
 
-        self.parameter_space = 'exchange,pool,pool_contains,block,start_time,end_time,sort,type'.split(',')
-        endpoint = _URL_DEX_LIQUIDITY_EVENTS
+        self.parameter_space = 'exchange,pool_address,block_number,type,start_time,end_time,sort,pool_contains,page_size,start_block,end_block'.split(',')
+        endpoint = cste._URL_DEX_LIQUIDITY_EVENTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -1129,7 +1100,7 @@ class DEXLiquidityEvents(KaikoData):
     def df_formatter(res, extra_args: dict = {}):
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit ='s')
         return df
 
 class DEXLiquiditySnapshots(KaikoData):
@@ -1163,15 +1134,15 @@ class DEXLiquiditySnapshots(KaikoData):
     datetime	    Timestamp at which the interval begins.                 In milliseconds.	1650441900000
     """
 
-    def __init__(self, pool_address: str, params: dict = dict(), client=None, **kwargs):
+    def __init__(self, params: dict = dict(), client=None, **kwargs):
         '''
         Parameters are: pool_address, start_block, end_block, start_time, end_time, sort
         '''
         # Initialize endpoint required parameters
-        self.req_params = dict(pool_address=pool_address)
+        self.req_params = dict()
 
-        self.parameter_space = 'start_block,end_block,start_time,end_time,sort'.split(',')
-        endpoint = _URL_DEX_LIQUIDITY_SNAPSHOTS
+        self.parameter_space = 'pool_address,exchange,start_block,end_block,start_time,end_time,sort,page_size'.split(',')
+        endpoint = cste._URL_DEX_LIQUIDITY_SNAPSHOTS
 
         KaikoData.__init__(self, endpoint, self.req_params, params, client, **kwargs)
 
@@ -1181,7 +1152,7 @@ class DEXLiquiditySnapshots(KaikoData):
     def df_formatter(res, extra_args: dict = {}):
         df = pd.DataFrame(res['data'], dtype = 'float')
         df.set_index('datetime', inplace=True)
-        df.index = ut.convert_timestamp_unix_to_datetime(df.index)
+        df.index = ut.convert_timestamp_unix_to_datetime(df.index, unit='s')
         return df
 
 if __name__ == '__main__':
