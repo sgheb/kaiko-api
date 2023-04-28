@@ -293,7 +293,7 @@ class Trades(KaikoData):
 
     @staticmethod
     def df_formatter(res, extra_args: dict = {}):
-        df = pd.DataFrame(res['data'], dtype = 'float')
+        df = pd.DataFrame(res['data'], dtype={'price': float, 'amount': float})
         df.set_index('timestamp', inplace=True)
         df.index = ut.convert_timestamp_unix_to_datetime(df.index)
         return df
